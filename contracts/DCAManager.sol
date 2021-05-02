@@ -2,6 +2,7 @@ pragma solidity ^0.8.0;
 
 import "./interfaces/IDCAManager.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import '@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol';
 
 /*
 *  @dev this contract is responsible for dollar cost averaging a users position from DAI to ETH at a specific time (weekly) and percentage(10%) on the OVM
@@ -14,13 +15,16 @@ contract DCAManager is IDCAManager {
     string public fundPosition; // e.g. DAI to WETH 10% Weekly
     address public baseToken;
     address public destinationToken;
+    address[] public path = new address[](2);
+    IUniswapV2Router02 public uniswapRouter;
 
     constructor(
         address _baseToken,
         address _destinationToken,
         uint _timeInterval,
         uint _percentage,
-        string memory _fundPosition
+        string memory _fundPosition,
+        address _uniswapV2Router
     ) public {
         lastTimeStamp = block.timestamp;
         baseToken = _baseToken;
@@ -28,6 +32,9 @@ contract DCAManager is IDCAManager {
         timeInterval = _timeInterval;
         percentage = _percentage;
         fundPosition = _fundPosition;
+        uniswapRouter = IUniswapV2Router02(_uniswapV2Router);
+        path[0] = baseToken;
+        path[1] = destinationToken;
     }
 
     mapping(address => mapping(address => uint)) balances; // user => token => balance
@@ -61,13 +68,19 @@ contract DCAManager is IDCAManager {
         return true;
     }
 
+    //TODO how to update everybodies balances??
     function performSwap() public override returns(bool) {
         require(lastTimeStamp + timeInterval <= block.timestamp);
-        (address dai, uint daiBalance, address weth, uint wethBalance) = getContractBalances();
-        uint amountOfDaiToSwap = daiBalance * percentage;
-        //TODO do uniswap swap here with default values
+        (, uint baseBalance, , ,) = getContractBalances();
+        uint amountToSwap = baseBalance * percentage;
         lastTimeStamp = block.timestamp;
-
+        uniswapRouter.swapExactTokensForTokensSupportingFeeOnTransferTokens(
+            amountToSwap,
+            0, // TODO set min amount of WETH using some kind of oracle
+            path,
+            address(this),
+            block.timestamp + 10000 // TODO find an appropriate way to set this
+        );
         return true;
     }
 
