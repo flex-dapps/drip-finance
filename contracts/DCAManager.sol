@@ -71,7 +71,7 @@ contract DCAManager is IDCAManager {
     //TODO how to update everybodies balances??
     function performSwap() public override returns(bool) {
         require(lastTimeStamp + timeInterval <= block.timestamp);
-        (, uint baseBalance, , ,) = getContractBalances();
+        (, uint baseBalance, ,) = getContractBalances();
         uint amountToSwap = baseBalance * percentage;
         lastTimeStamp = block.timestamp;
         uniswapRouter.swapExactTokensForTokensSupportingFeeOnTransferTokens(
